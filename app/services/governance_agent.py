@@ -1,17 +1,13 @@
-# app/services/governance_agent.py
 """
 Suresight AI — Governance Agent (LLM-backed)
 - Uses Gemini to detect PII/PHI across OCR text/entities/tables.
 - Applies Python redaction by role & HIPAA/GDPR rules.
 - Returns sanitized view + redaction manifest + pii_report + audit.
 
-Env / Manual config:
-  MANUAL_GEMINI_API_KEY   -> hardcoded key (fallback to GEMINI_API_KEY / GOOGLE_API_KEY)
-  MANUAL_GEMINI_MODEL     -> default "gemini-2.5-flash"
-
-Endpoints:
-  GET  /health
-  POST /a2a/govern   (intent="doc.govern")
+Fixes:
+- Robust JSON extraction from Gemini output (code fences / extra prose).
+- Retry with backoff to reduce transient 5xx/parse errors.
+- Graceful fallback to empty PII (no 500) so multi-file runs don’t break.
 """
 
 import os
@@ -26,10 +22,10 @@ from typing import List, Dict, Any, Optional, Tuple
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# ------------- MANUAL CONFIG (edit if you like; env wins only if manual placeholder left) -------------
+# ------------- MANUAL CONFIG (env wins only if manual placeholder left) -------------
 MANUAL_GEMINI_API_KEY = os.getenv("MANUAL_GEMINI_API_KEY", "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo")
 MANUAL_GEMINI_MODEL   = os.getenv("MANUAL_GEMINI_MODEL", "gemini-2.5-flash")
-# ------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------
 
 def _manual_key_set(v: str) -> bool:
     return bool(v) and not v.startswith("PASTE_") and not v.startswith("paste_")
@@ -72,8 +68,6 @@ MASK_TOKEN = "[REDACTED]"
 PSEUDO_SALT = (os.getenv("GOV_PSEUDO_SALT") or "DO_NOT_USE_IN_PROD_suresight_demo_salt").encode("utf-8")
 MINIMUM_NECESSARY = True  # drop unknown/low-value entities for client role
 
-# HIPAA/GDPR category normalization we expect from LLM
-# You can expand this list; these keys drive actions
 LLM_CATEGORIES = {
     "NAME", "FULL_NAME", "FIRST_NAME", "LAST_NAME",
     "EMAIL", "PHONE", "ADDRESS", "DOB", "DATE_OF_BIRTH",
@@ -136,10 +130,6 @@ def _compact_tables_for_prompt(tables: List[Dict[str, Any]], limit_chars: int = 
     return "\n".join(lines)
 
 def _llm_prompt(ocr: Dict[str, Any]) -> str:
-    """
-    Ask the LLM to tag PII/PHI + GDPR-relevant identifiers.
-    We require strict JSON with schema below.
-    """
     full_text = (ocr.get("full_text") or "")[:20000]
     ents = ocr.get("entities") or []
     tabs = ocr.get("tables") or []
@@ -162,7 +152,7 @@ def _llm_prompt(ocr: Dict[str, Any]) -> str:
         '    {"category": "EMAIL|PHONE|DOB|NAME|ADDRESS|MRN|SSN|CREDIT_CARD|IBAN|NATIONAL_ID|IP|GEO|LICENSE|PLATE",\n'
         '     "value": "<exact string from text>",\n'
         '     "confidence": 0.0 to 1.0,\n'
-        '     "where": ["full_text","entities","tables"]  // subset\n'
+        '     "where": ["full_text","entities","tables"]\n'
         "    }, ...\n"
         "  ]\n"
         "}\n"
@@ -180,27 +170,43 @@ def _llm_prompt(ocr: Dict[str, Any]) -> str:
         f"{tables_compact}\n"
     )
 
-def _call_gemini_json(prompt: str) -> Dict[str, Any]:
-    """
-    Calls Gemini and parses JSON. Supports new and legacy SDKs.
-    """
+# ---- Robust JSON parsing (handles fences/extra text) ----
+_CODEFENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+_JSON_OBJECT_RE = re.compile(r"(\{.*\})", re.DOTALL)
+
+def _parse_json_loosely(text: str) -> Dict[str, Any]:
+    if not text:
+        raise ValueError("empty text")
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    m = _CODEFENCE_RE.search(text)
+    if m:
+        inner = m.group(1)
+        try:
+            return json.loads(inner)
+        except Exception:
+            pass
+    objs = _JSON_OBJECT_RE.findall(text)
+    if objs:
+        candidate = max(objs, key=len)
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+    raise ValueError("no valid JSON object found")
+
+# ---- LLM calls with retry ----
+def _call_gemini_json_once(prompt: str) -> Dict[str, Any]:
     if _client_mode == "google-genai":
         resp = _client.models.generate_content(
             model=_ensure_model_name(GEMINI_MODEL),
-            contents=[{
-                "role": "user",
-                "parts": [{"text": prompt}],
-            }],
-            # new SDK uses `config`, not `generation_config`
-            config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-                "max_output_tokens": 2048
-            }
+            contents=[{"role": "user","parts": [{"text": prompt}]}],
+            config={"temperature": 0.1, "response_mime_type": "application/json", "max_output_tokens": 2048}
         )
         text = getattr(resp, "output_text", None) or getattr(resp, "text", None)
         if not text:
-            # cautious fallback
             try:
                 cand = resp.candidates[0]
                 for p in cand.content.parts:
@@ -211,19 +217,12 @@ def _call_gemini_json(prompt: str) -> Dict[str, Any]:
                 pass
         if not text:
             raise RuntimeError("Empty response from Gemini (google-genai)")
-        return json.loads(text)
+        return _parse_json_loosely(text)
 
     elif _client_mode == "google-generativeai":
         resp = _client.generate_content(
-            contents=[{
-                "role": "user",
-                "parts": [{"text": prompt}],
-            }],
-            generation_config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-                "max_output_tokens": 2048
-            }
+            contents=[{"role": "user", "parts": [{"text": prompt}]}],
+            generation_config={"temperature": 0.1, "response_mime_type": "application/json", "max_output_tokens": 2048}
         )
         text = getattr(resp, "text", None)
         if not text:
@@ -237,10 +236,19 @@ def _call_gemini_json(prompt: str) -> Dict[str, Any]:
                 pass
         if not text:
             raise RuntimeError("Empty response from Gemini (google-generativeai)")
-        return json.loads(text)
-
+        return _parse_json_loosely(text)
     else:
         raise RuntimeError("Gemini client not initialized. Check API key/SDK.")
+
+def _call_gemini_json_with_retry(prompt: str, attempts: int = 2, backoff_base: float = 0.5) -> Dict[str, Any]:
+    last_err: Optional[Exception] = None
+    for i in range(attempts):
+        try:
+            return _call_gemini_json_once(prompt)
+        except Exception as e:
+            last_err = e
+            time.sleep(backoff_base * (i + 1))
+    raise last_err if last_err else RuntimeError("Unknown governance LLM error")
 
 def _normalize_llm_pii(llm: Dict[str, Any]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
@@ -252,65 +260,42 @@ def _normalize_llm_pii(llm: Dict[str, Any]) -> List[Dict[str, Any]]:
             where = item.get("where") or []
             if not cat or not val:
                 continue
-            if len(val) < 3:  # avoid over-aggressive two-letter replacements
+            if len(val) < 3:
                 continue
-            # normalize category aliases
             if cat == "FULL_NAME": cat = "NAME"
             if cat == "DATE_OF_BIRTH": cat = "DOB"
             out.append({"category": cat, "value": val, "confidence": conf, "where": list(dict.fromkeys(where))})
         except Exception:
             continue
-    # dedupe by (cat, value)
-    seen = set()
-    uniq = []
+    # dedupe
+    seen = set(); uniq = []
     for x in out:
         k = (x["category"], x["value"])
-        if k in seen:
-            continue
-        seen.add(k)
-        uniq.append(x)
+        if k in seen: continue
+        seen.add(k); uniq.append(x)
     return uniq
 
 # ---------- Redaction policy ----------
 def _action_for(category: str, role: str, gdpr: bool, hipaa: bool) -> str:
-    """
-    Decide redaction action given normalized category.
-      - admin: allow
-      - client: HIPAA/GDPR rules
-    """
     if role == "admin":
         return "allow"
-
     cat = category.upper()
-
-    # Strong mask categories in any compliance mode
     if cat in {"SSN", "CREDIT_CARD", "IBAN", "LICENSE", "PLATE"}:
         return "mask"
-
-    # HIPAA identifiers (partial list)
     if hipaa:
         if cat in {"NAME", "ADDRESS", "DOB", "MRN", "PHONE", "EMAIL", "IP", "GEO"}:
-            # Email/Phone may be pseudonymized under GDPR; HIPAA prefers removal
             return "mask" if cat in {"NAME", "ADDRESS", "DOB", "MRN"} else ("pseudonymize" if gdpr else "mask")
-
-    # GDPR PII
     if gdpr:
         if cat in {"EMAIL", "PHONE", "NAME", "ADDRESS", "IP", "GEO", "NATIONAL_ID"}:
             return "pseudonymize"
-
-    # Default conservative
     return "mask"
 
 def _safe_sub_replace(text: str, needle: str, repl: str) -> str:
-    """
-    Replace 'needle' literally in text (case-sensitive). Uses re.escape to avoid regex bugs.
-    """
     if not text or not needle:
         return text or ""
     try:
         return re.sub(re.escape(needle), repl, text)
     except Exception:
-        # If something odd happens, do a simple replace
         return text.replace(needle, repl)
 
 def _apply_text_redactions(text: str, pii_items: List[Dict[str, Any]],
@@ -324,20 +309,12 @@ def _apply_text_redactions(text: str, pii_items: List[Dict[str, Any]],
         val = item["value"]
         fp = _fingerprint(val)
         if action == "mask":
-            repl = MASK_TOKEN
-            method = "mask"
+            repl = MASK_TOKEN; method = "mask"
         else:
-            repl = _pseudonymize(val, item["category"])
-            method = "pseudonymize"
-
+            repl = _pseudonymize(val, item["category"]); method = "pseudonymize"
         if out and val in out:
             out = _safe_sub_replace(out, val, repl)
-            manifest.append({
-                "category": item["category"],
-                "method": method,
-                "location": location,
-                "fp": fp
-            })
+            manifest.append({"category": item["category"], "method": method, "location": location, "fp": fp})
     return out
 
 def _apply_entity_redactions(entities: List[Dict[str, Any]], pii_items: List[Dict[str, Any]],
@@ -351,14 +328,11 @@ def _apply_entity_redactions(entities: List[Dict[str, Any]], pii_items: List[Dic
         etype = (ent.get("type") or "").upper()
         value = str(ent.get("value", ""))
 
-        # try to map via LLM items or type/name heuristics
         matched_category = None
         for item in pii_items:
             if item["value"] and item["value"] == value:
-                matched_category = item["category"]
-                break
+                matched_category = item["category"]; break
         if not matched_category:
-            # fallback heuristics
             if etype in {"EMAIL","PHONE","DOB","MRN","SSN"}:
                 matched_category = etype
             elif any(k in name for k in ["email","e-mail"]):
@@ -383,7 +357,6 @@ def _apply_entity_redactions(entities: List[Dict[str, Any]], pii_items: List[Dic
                 manifest.append({"category": matched_category, "method": "pseudonymize", "location": f"entities.{name}", "fp": fp})
                 continue
 
-        # not matched or admin or allowed
         if role != "admin" and MINIMUM_NECESSARY:
             keep_ok = etype in ("AMOUNT","FINANCIAL","TOTAL","DATE","MEDICAL","INVOICE","CURRENCY") \
                       or any(k in name for k in ["total","amount","tax","invoice","gst","diagnosis"])
@@ -418,14 +391,20 @@ def sanitize_with_llm(ocr: Dict[str, Any], role: str, gdpr: bool, hipaa: bool
                       ) -> Tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, Any]]:
     """
     Returns (sanitized_view, redaction_manifest, pii_report)
+    Robust to LLM failure: returns original (admin) or unredacted (client) content with empty pii_report.
     """
     if not API_KEY or _client_mode == "none":
         raise RuntimeError("Gemini not configured for Governance agent")
 
-    # 1) Call LLM for PII detection
-    prompt = _llm_prompt(ocr)
-    llm_raw = _call_gemini_json(prompt)
-    pii_items = _normalize_llm_pii(llm_raw)
+    # 1) Call LLM for PII detection (retry + loose parse)
+    pii_items: List[Dict[str, Any]] = []
+    try:
+        prompt = _llm_prompt(ocr)
+        llm_raw = _call_gemini_json_with_retry(prompt, attempts=2, backoff_base=0.6)
+        pii_items = _normalize_llm_pii(llm_raw)
+    except Exception:
+        # Graceful fallback: proceed with zero PII items
+        pii_items = []
 
     # 2) Apply actions
     full_text = ocr.get("full_text", "") or ""
@@ -455,7 +434,6 @@ def sanitize_with_llm(ocr: Dict[str, Any], role: str, gdpr: bool, hipaa: bool
         "tables": tabs_out,
     }
 
-    # Prepare LLM pii_report (safe to return)
     pii_report = {"pii": pii_items}
     return sanitized, manifest, pii_report
 
@@ -479,7 +457,7 @@ def govern_handler(req: A2A):
         lawful_basis = inp.get("lawful_basis", "contract")
         retention_days = int(inp.get("retention_days", 365))
 
-        # LLM-backed sanitize
+        # LLM-backed sanitize (robust)
         sanitized, manifest, pii_report = sanitize_with_llm(ocr, role, gdpr, hipaa)
 
         # Export decision
@@ -508,10 +486,14 @@ def govern_handler(req: A2A):
             "export_state": export_state,
             "views": {"sanitized": sanitized},
             "redaction_manifest": manifest,
-            "pii_report": pii_report,          # <- LLM detections returned for transparency
+            "pii_report": pii_report,
             "policy_version": POLICY_VERSION,
             "audit": audit
         }
 
+    except HTTPException:
+        # bubble up intended status codes
+        raise
     except Exception as e:
+        # generic failure => 500 (unexpected)
         raise HTTPException(status_code=500, detail=f"governance error: {e}")
