@@ -1,5 +1,6 @@
 # app.py
-import os, json, base64, httpx, time
+import os, json, base64, httpx, time, mimetypes
+
 from dotenv import load_dotenv
 import streamlit as st
 import pandas as pd
@@ -9,9 +10,9 @@ import streamlit.components.v1 as components
 load_dotenv()
 
 # ===================== Service endpoints =====================
-OCR_URL   = f"http://localhost:{os.getenv('OCR_PORT','8081')}"
-GOV_URL   = f"http://localhost:{os.getenv('GOV_PORT','8082')}"
-REINF_URL = f"http://localhost:{os.getenv('REINF_PORT','8083')}"
+OCR_URL   = os.getenv("OCR_PORT") or "http://localhost:8081"
+GOV_URL   = os.getenv("GOV_PORT") or "http://localhost:8082"
+REINF_URL = os.getenv("REINF_PORT") or "http://localhost:8083"
 
 # ===================== Assets =====================
 LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.jpeg"
