@@ -1,0 +1,46 @@
+# ---- Environment & secrets ----
+.env
+*.env
+.env.*
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc.*
+*.pyo.*
+*.pyd.*
+*.pdb
+*.pkl
+
+# ---- Virtual environments ----
+.venv/
+venv/
+ENV/
+env/
+
+# ---- IDE / Editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- Logs & caches ----
+*.log
+*.out
+*.err
+.cache/
+.mypy_cache/
+.pytest_cache/
+__pycache__/
+
+# ---- Build & dist ----
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# ---- Streamlit ----
+.streamlit/

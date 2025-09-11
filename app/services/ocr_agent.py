@@ -19,19 +19,19 @@
 # from pydantic import BaseModel
 
 # # ========= MANUAL CONFIG (edit these two lines) =========
-# MANUAL_GEMINI_API_KEY = "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo"   # <-- put your real Gemini API key
-# MANUAL_GEMINI_MODEL   = "gemini-2.5-flash"             # e.g., "gemini-2.5-flash" or "gemini-1.5-flash"
+# GEMINI_API_KEY = "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo"   # <-- put your real Gemini API key
+# GEMINI_MODEL   = "gemini-2.5-flash"             # e.g., "gemini-2.5-flash" or "gemini-1.5-flash"
 # # ========================================================
 
 # # If you leave the placeholder, we fall back to env vars so devs can still run with .env
 # def _manual_key_set(v: str) -> bool:
 #     return bool(v) and not v.startswith("PASTE_") and not v.startswith("paste_")
 
-# API_KEY = MANUAL_GEMINI_API_KEY if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+# API_KEY = GEMINI_API_KEY if _manual_key_set(GEMINI_API_KEY) else (
 #     os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 # )
-# GEMINI_MODEL = MANUAL_GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-# CONFIG_SOURCE = "manual" if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+# GEMINI_MODEL = GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# CONFIG_SOURCE = "manual" if _manual_key_set(GEMINI_API_KEY) else (
 #     "env(GEMINI_API_KEY)" if os.getenv("GEMINI_API_KEY") else
 #     "env(GOOGLE_API_KEY)" if os.getenv("GOOGLE_API_KEY") else "none"
 # )
@@ -238,7 +238,7 @@
 #     if not API_KEY or _client_mode == "none":
 #         raise HTTPException(
 #             status_code=500,
-#             detail="Gemini not configured (no API key or SDK). Set MANUAL_GEMINI_API_KEY in the file or env key and restart."
+#             detail="Gemini not configured (no API key or SDK). Set GEMINI_API_KEY in the file or env key and restart."
 #         )
 #     else:
 #         print("Gemini client initialized.")
@@ -297,20 +297,25 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# ========= MANUAL CONFIG (edit these two lines) =========
-MANUAL_GEMINI_API_KEY = "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo"   # <-- put your real Gemini API key
-MANUAL_GEMINI_MODEL   = "gemini-2.5-flash"             # e.g., "gemini-2.5-flash" or "gemini-1.5-flash"
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# ------------- MANUAL CONFIG (env wins only if manual placeholder left) -------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL")
+# ------------------------------------------           # e.g., "gemini-2.5-flash" or "gemini-1.5-flash"
 # ========================================================
 
 # If you leave the placeholder, we fall back to env vars so devs can still run with .env
 def _manual_key_set(v: str) -> bool:
     return bool(v) and not v.startswith("PASTE_") and not v.startswith("paste_")
 
-API_KEY = MANUAL_GEMINI_API_KEY if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+API_KEY = GEMINI_API_KEY if _manual_key_set(GEMINI_API_KEY) else (
     os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 )
-GEMINI_MODEL = MANUAL_GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-CONFIG_SOURCE = "manual" if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+GEMINI_MODEL = GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+CONFIG_SOURCE = "manual" if _manual_key_set(GEMINI_API_KEY) else (
     "env(GEMINI_API_KEY)" if os.getenv("GEMINI_API_KEY") else
     "env(GOOGLE_API_KEY)" if os.getenv("GOOGLE_API_KEY") else "none"
 )
@@ -597,7 +602,7 @@ async def ocr_handler(req: A2A):
     if not API_KEY or _client_mode == "none":
         raise HTTPException(
             status_code=500,
-            detail="Gemini not configured (no API key or SDK). Set MANUAL_GEMINI_API_KEY in the file or env key and restart."
+            detail="Gemini not configured (no API key or SDK). Set GEMINI_API_KEY in the file or env key and restart."
         )
     else:
         print("Gemini client initialized.")

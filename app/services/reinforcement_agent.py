@@ -1,6 +1,7 @@
 # app/services/reinforcement_agent.py
 """
 Suresight AI — Reinforcement Agent (LLM-backed)
+Structured like ocr_agent.py; business logic preserved.
 
 Goal:
 - Take the Governance sanitized view and apply human, plain-English feedback
@@ -15,7 +16,7 @@ Inputs (POST /a2a/reinforce):
   "intent": "doc.reinforce",
   "job_id": "<id>",
   "input": {
-    "apply": true,                         # if false -> status "skipped"
+    "apply": true,
     "feedback": "User feedback text...",
     "governance_result": { ... },          # full governance response (preferred)
     # OR:
@@ -56,24 +57,29 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
-# ---------- Manual config (env wins only if manual left as placeholder) ----------
-MANUAL_GEMINI_API_KEY = os.getenv("MANUAL_GEMINI_API_KEY", "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo")
-MANUAL_GEMINI_MODEL   = os.getenv("MANUAL_GEMINI_MODEL", "gemini-2.5-flash")
+# ---------- Env + config (mirror ocr_agent.py) ----------
+load_dotenv()
 
-def _manual_key_set(v: str) -> bool:
+# ------------- MANUAL CONFIG (env wins only if manual placeholder left) -------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL")
+# ------------------------------------------
+
+def _manual_key_set(v: Optional[str]) -> bool:
     return bool(v) and not v.startswith("PASTE_") and not v.startswith("paste_")
 
-API_KEY = MANUAL_GEMINI_API_KEY if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+API_KEY = GEMINI_API_KEY if _manual_key_set(GEMINI_API_KEY) else (
     os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 )
-GEMINI_MODEL = MANUAL_GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-CONFIG_SOURCE = "manual" if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+GEMINI_MODEL = GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+CONFIG_SOURCE = "manual" if _manual_key_set(GEMINI_API_KEY or "") else (
     "env(GEMINI_API_KEY)" if os.getenv("GEMINI_API_KEY") else
     "env(GOOGLE_API_KEY)" if os.getenv("GOOGLE_API_KEY") else "none"
 )
 
-# ---------- Gemini client shim (prefer new google-genai, fallback to legacy) ----------
+# ---------- Gemini client shim (new 'google-genai' first, then legacy 'google-generativeai') ----------
 _client_mode: Optional[str] = None
 _client = None
 try:
@@ -111,19 +117,20 @@ def health():
         "service": "reinforcement",
         "sdk": _client_mode,
         "model": GEMINI_MODEL,
+        "has_key": bool(API_KEY),
         "config_source": CONFIG_SOURCE,
     }
 
-# ---------------- Helpers ----------------
-def _ensure_model_name(name: str) -> str:
+# ---------------- Helpers (mirror OCR style) ----------------
+def _ensure_model_name(name: Optional[str]) -> str:
     aliases = {
         "gemini-2.5-flasj": "gemini-2.5-flash",
         "gemini-2.5-flahs": "gemini-2.5-flash",
         "gemini-1.5-flasj": "gemini-1.5-flash",
         "gemini-1.5-flahs": "gemini-1.5-flash",
     }
-    fixed = aliases.get((name or "").strip(), (name or "").strip())
-    return fixed or "gemini-2.5-flash"
+    s = (name or "").strip()
+    return aliases.get(s, s) or "gemini-2.5-flash"
 
 TOKEN_RE = re.compile(r"(?:\[REDACTED\])|(?:token:[a-z]+:[0-9a-f]{6,40})", re.IGNORECASE)
 
@@ -153,63 +160,35 @@ def _extract_json_text_from_genai(resp: Any) -> str:
         pass
     return ""
 
-def _call_gemini_json(prompt: str) -> Tuple[Optional[Dict[str, Any]], str]:
+_CODEFENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+_JSON_OBJECT_RE = re.compile(r"(\{.*\})", re.DOTALL)
+
+def _parse_json_loosely(text: str) -> Dict[str, Any]:
     """
-    Returns (json_obj_or_none, raw_text)
+    Accepts JSON with/without code fences; tries to pull the largest JSON object.
+    Raises ValueError if nothing parseable.
     """
-    raw = ""
-    if _client_mode == "google-genai":
-        resp = _client.models.generate_content(
-            model=_ensure_model_name(GEMINI_MODEL),
-            contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-                "max_output_tokens": 4096
-            }
-        )
-        raw = _extract_json_text_from_genai(resp)
-        if not raw:
-            return None, ""
-        try:
-            return json.loads(raw), raw
-        except Exception:
-            return None, raw
-
-    elif _client_mode == "google-generativeai":
-        resp = _client.generate_content(
-            contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            generation_config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-                "max_output_tokens": 4096
-            }
-        )
-        raw = getattr(resp, "text", None)
-        if not raw:
-            try:
-                cand = resp.candidates[0]
-                for p in cand.content.parts:
-                    if getattr(p, "text", None):
-                        raw = p.text
-                        break
-            except Exception:
-                pass
-        if not raw:
-            return None, ""
-        try:
-            return json.loads(raw), raw
-        except Exception:
-            return None, raw
-
-    else:
-        return None, ""
-
-def _extract_sanitized_from_governance(gov: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not text:
+        raise ValueError("empty text")
     try:
-        return gov.get("views", {}).get("sanitized") or None
+        return json.loads(text)
     except Exception:
-        return None
+        pass
+    m = _CODEFENCE_RE.search(text)
+    if m:
+        inner = m.group(1)
+        try:
+            return json.loads(inner)
+        except Exception:
+            pass
+    objs = _JSON_OBJECT_RE.findall(text)
+    if objs:
+        candidate = max(objs, key=len)
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+    raise ValueError("no valid JSON object found")
 
 def _normalize_view_shape(j: Dict[str, Any]) -> Dict[str, Any]:
     # Minimal required keys; leave unknown keys on items untouched downstream
@@ -236,12 +215,11 @@ def _merge_entities(base: List[Dict[str, Any]], edited: Optional[List[Dict[str, 
         if not isinstance(e, dict):
             e = {}
         merged = dict(b)  # keep all base fields
-        # Apply only safe fields from edited
         if "name" in e:       merged["name"] = e["name"]
         if "type" in e:       merged["type"] = e["type"]
         if "value" in e:      merged["value"] = e["value"]
         if "confidence" in e: merged["confidence"] = e["confidence"]
-        # If base had redaction marker but edited value tries to remove tokens, revert to base value.
+        # Preserve tokens
         if "value" in merged:
             if not _all_tokens_preserved(str(b.get("value","")), str(merged.get("value",""))):
                 merged["value"] = b.get("value","")
@@ -263,7 +241,6 @@ def _merge_tables(base: List[Dict[str, Any]], edited: Optional[List[Dict[str, An
         tid = e.get("id", b.get("id"))
         rows_e = e.get("rows")
         rows_b = b.get("rows")
-        # Prefer edited rows if present; enforce token preservation cell-by-cell
         rows_final: List[List[str]] = []
         rows_src = rows_e if isinstance(rows_e, list) else rows_b if isinstance(rows_b, list) else []
         for r_idx, row in enumerate(rows_src):
@@ -335,12 +312,11 @@ def reinforce_handler(req: A2A):
     feedback = str(inp.get("feedback", "") or "")
 
     governance_result = inp.get("governance_result") or {}
-    sanitized = inp.get("sanitized") or _extract_sanitized_from_governance(governance_result)
+    sanitized = inp.get("sanitized") or (governance_result.get("views", {}) or {}).get("sanitized")
     if not sanitized:
         raise HTTPException(status_code=400, detail="Missing sanitized input. Provide 'governance_result' or 'sanitized'.")
 
     policy_version = (governance_result or {}).get("policy_version")
-
     base_view = _normalize_view_shape(sanitized)
 
     # Fast path: user says don't apply
@@ -364,6 +340,53 @@ def reinforce_handler(req: A2A):
 
     if not API_KEY or _client_mode == "none":
         raise HTTPException(status_code=500, detail="Gemini not configured for Reinforcement agent")
+
+    def _call_gemini_json(prompt: str) -> Tuple[Optional[Dict[str, Any]], str]:
+        raw = ""
+        if _client_mode == "google-genai":
+            resp = _client.models.generate_content(  # type: ignore[attr-defined]
+                model=_ensure_model_name(GEMINI_MODEL),
+                contents=[{"role": "user", "parts": [{"text": prompt}]}],
+                config={
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json",
+                    "max_output_tokens": 4096
+                }
+            )
+            raw = _extract_json_text_from_genai(resp)
+            if not raw:
+                return None, ""
+            try:
+                return json.loads(raw), raw
+            except Exception:
+                return None, raw
+        elif _client_mode == "google-generativeai":
+            resp = _client.generate_content(  # type: ignore[attr-defined]
+                contents=[{"role": "user", "parts": [{"text": prompt}]}],
+                generation_config={
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json",
+                    "max_output_tokens": 4096
+                }
+            )
+            raw = getattr(resp, "text", None)
+            if not raw:
+                try:
+                    cand = resp.candidates[0]
+                    for p in cand.content.parts:
+                        if getattr(p, "text", None):
+                            raw = p.text
+                            break
+                except Exception:
+                    pass
+            if not raw:
+                return None, ""
+            try:
+                return json.loads(raw), raw
+            except Exception:
+                return None, raw
+        else:
+            return None, ""
 
     t0 = time.time()
     raw_sample = ""
@@ -459,4 +482,3 @@ def reinforce_handler(req: A2A):
                 "reason": f"reinforcement exception: {e}"
             }
         }
-

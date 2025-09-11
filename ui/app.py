@@ -3,6 +3,8 @@ import os, json, base64, httpx, time
 from dotenv import load_dotenv
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
+
 
 load_dotenv()
 
@@ -12,8 +14,8 @@ GOV_URL   = f"http://localhost:{os.getenv('GOV_PORT','8082')}"
 REINF_URL = f"http://localhost:{os.getenv('REINF_PORT','8083')}"
 
 # ===================== Assets =====================
-LEFT_LOGO  = r"C:\Users\ParthSurydhwaj\Downloads\ADROSONIC LOGO WHITE-03.png"
-RIGHT_LOGO = r"C:\Users\ParthSurydhwaj\Downloads\DIL Logo.png"
+LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.jpeg"
+RIGHT_LOGO = r"ui/artifacts/logos/DILLogo.jpeg"
 
 # ===================== Defaults (no UI controls) =====================
 LOCALE_DEFAULT = "en-IN"
@@ -169,11 +171,11 @@ def set_agent(key, status=None, pct=None, tone=None, step=None):
 def agent_panel():
     c_logo1, c_logo2 = st.sidebar.columns([1,1])
     try:
-        c_logo1.image(LEFT_LOGO, use_container_width=True)
+        c_logo1.image(LEFT_LOGO, use_container_width=False)
     except Exception:
         c_logo1.markdown("🔍")
     try:
-        c_logo2.image(RIGHT_LOGO, use_container_width=True)
+        c_logo2.image(RIGHT_LOGO, use_container_width=False)
     except Exception:
         c_logo2.markdown("🛡️")
 
@@ -560,6 +562,6 @@ def render_app():
     st.markdown('<div class="su-glass" style="text-align:center;">🚀 <strong>SureSight AI</strong> • Agentic/Privacy-first document intelligence</div>', unsafe_allow_html=True)
 
 # ===================== Hooks (optional) =====================
-st.components.v1.html("<script>window.addEventListener('message', (e)=>{ if(!e.data)return; if(e.data.type==='streamlit:refreshHealth'){location.reload();}});</script>", height=0)
+components.html("<script>window.addEventListener('message', (e)=>{ if(!e.data)return; if(e.data.type==='streamlit:refreshHealth'){location.reload();}});</script>", height=0)
 
 render_app()

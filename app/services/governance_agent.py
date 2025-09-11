@@ -1,11 +1,14 @@
+# app/services/governance_agent.py
 """
 Suresight AI — Governance Agent (LLM-backed)
+Structured like ocr_agent.py; business logic preserved.
+
 - Uses Gemini to detect PII/PHI across OCR text/entities/tables.
 - Applies Python redaction by role & HIPAA/GDPR rules.
 - Returns sanitized view + redaction manifest + pii_report + audit.
 
-Fixes:
-- Robust JSON extraction from Gemini output (code fences / extra prose).
+Fixes kept:
+- Robust JSON extraction (code fences / extra prose).
 - Retry with backoff to reduce transient 5xx/parse errors.
 - Graceful fallback to empty PII (no 500) so multi-file runs don’t break.
 """
@@ -18,28 +21,31 @@ import time
 import hashlib
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
-
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+# ---------- Env + config (mirror ocr_agent.py) ----------
+load_dotenv()
+
 # ------------- MANUAL CONFIG (env wins only if manual placeholder left) -------------
-MANUAL_GEMINI_API_KEY = os.getenv("MANUAL_GEMINI_API_KEY", "AIzaSyCi7XQTGOh_Nks15ap6sM1GWdCFVqcKQbo")
-MANUAL_GEMINI_MODEL   = os.getenv("MANUAL_GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL   = os.getenv("GEMINI_MODEL")
 # -----------------------------------------------------------------------------------
 
-def _manual_key_set(v: str) -> bool:
+def _manual_key_set(v: Optional[str]) -> bool:
     return bool(v) and not v.startswith("PASTE_") and not v.startswith("paste_")
 
-API_KEY = MANUAL_GEMINI_API_KEY if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+API_KEY = GEMINI_API_KEY if _manual_key_set(GEMINI_API_KEY) else (
     os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 )
-GEMINI_MODEL = MANUAL_GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-CONFIG_SOURCE = "manual" if _manual_key_set(MANUAL_GEMINI_API_KEY) else (
+GEMINI_MODEL = GEMINI_MODEL or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+CONFIG_SOURCE = "manual" if _manual_key_set(GEMINI_API_KEY or "") else (
     "env(GEMINI_API_KEY)" if os.getenv("GEMINI_API_KEY") else
     "env(GOOGLE_API_KEY)" if os.getenv("GOOGLE_API_KEY") else "none"
 )
 
-# ---------- Gemini client shim (prefer new google-genai, fallback to legacy google-generativeai) ----------
+# ---------- Gemini client shim (prefer new google-genai, fallback to legacy) ----------
 _client_mode: Optional[str] = None
 _client = None
 try:
@@ -91,11 +97,12 @@ def health():
         "service": "governance",
         "sdk": _client_mode,
         "model": GEMINI_MODEL,
+        "has_key": bool(API_KEY),
         "config_source": CONFIG_SOURCE,
         "policy_version": POLICY_VERSION,
     }
 
-# ---------------- Utils ----------------
+# ---------------- Utils (mirror OCR helpers for JSON robustness) ----------------
 def _fingerprint(value: str) -> str:
     try:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
@@ -106,15 +113,15 @@ def _pseudonymize(value: str, kind: str) -> str:
     sig = hmac.new(PSEUDO_SALT, (kind + ":" + value).encode("utf-8"), hashlib.sha256).hexdigest()
     return f"token:{kind.lower()}:{sig[:10]}"
 
-def _ensure_model_name(name: str) -> str:
+def _ensure_model_name(name: Optional[str]) -> str:
     aliases = {
         "gemini-2.5-flasj": "gemini-2.5-flash",
         "gemini-2.5-flahs": "gemini-2.5-flash",
         "gemini-1.5-flasj": "gemini-1.5-flash",
         "gemini-1.5-flahs": "gemini-1.5-flash",
     }
-    fixed = aliases.get((name or "").strip(), (name or "").strip())
-    return fixed or "gemini-2.5-flash"
+    s = (name or "").strip()
+    return aliases.get(s, s) or "gemini-2.5-flash"
 
 def _compact_tables_for_prompt(tables: List[Dict[str, Any]], limit_chars: int = 4000) -> str:
     lines: List[str] = []
@@ -174,6 +181,33 @@ def _llm_prompt(ocr: Dict[str, Any]) -> str:
 _CODEFENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 _JSON_OBJECT_RE = re.compile(r"(\{.*\})", re.DOTALL)
 
+def _extract_text_from_response(resp: Any) -> str:
+    """
+    Safely pull text from either the new (google-genai) or legacy responses,
+    without assuming candidates/content/parts are present.
+    """
+    # Try direct text fields first
+    direct = getattr(resp, "output_text", None) or getattr(resp, "text", None)
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+
+    # Then try candidates[0].content.parts[*].text (new SDK)
+    candidates = getattr(resp, "candidates", None)
+    if isinstance(candidates, (list, tuple)) and len(candidates) > 0:
+        cand0 = candidates[0]
+        content = getattr(cand0, "content", None)
+        if content is not None:
+            parts = getattr(content, "parts", None)
+            if isinstance(parts, (list, tuple)):
+                for part in parts:
+                    t = getattr(part, "text", None)
+                    if isinstance(t, str) and t.strip():
+                        return t.strip()
+
+    # Nothing usable
+    return ""
+
+
 def _parse_json_loosely(text: str) -> Dict[str, Any]:
     if not text:
         raise ValueError("empty text")
@@ -200,45 +234,39 @@ def _parse_json_loosely(text: str) -> Dict[str, Any]:
 # ---- LLM calls with retry ----
 def _call_gemini_json_once(prompt: str) -> Dict[str, Any]:
     if _client_mode == "google-genai":
-        resp = _client.models.generate_content(
+        # New SDK
+        resp = _client.models.generate_content(  # type: ignore[attr-defined]
             model=_ensure_model_name(GEMINI_MODEL),
             contents=[{"role": "user","parts": [{"text": prompt}]}],
-            config={"temperature": 0.1, "response_mime_type": "application/json", "max_output_tokens": 2048}
+            config={
+                "temperature": 0.1,
+                "response_mime_type": "application/json",
+                "max_output_tokens": 2048
+            }
         )
-        text = getattr(resp, "output_text", None) or getattr(resp, "text", None)
-        if not text:
-            try:
-                cand = resp.candidates[0]
-                for p in cand.content.parts:
-                    if getattr(p, "text", None):
-                        text = p.text
-                        break
-            except Exception:
-                pass
+        text = _extract_text_from_response(resp)
         if not text:
             raise RuntimeError("Empty response from Gemini (google-genai)")
         return _parse_json_loosely(text)
 
     elif _client_mode == "google-generativeai":
-        resp = _client.generate_content(
+        # Legacy SDK
+        resp = _client.generate_content(  # type: ignore[attr-defined]
             contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            generation_config={"temperature": 0.1, "response_mime_type": "application/json", "max_output_tokens": 2048}
+            generation_config={
+                "temperature": 0.1,
+                "response_mime_type": "application/json",
+                "max_output_tokens": 2048
+            }
         )
-        text = getattr(resp, "text", None)
-        if not text:
-            try:
-                cand = resp.candidates[0]
-                for p in cand.content.parts:
-                    if getattr(p, "text", None):
-                        text = p.text
-                        break
-            except Exception:
-                pass
+        text = _extract_text_from_response(resp)
         if not text:
             raise RuntimeError("Empty response from Gemini (google-generativeai)")
         return _parse_json_loosely(text)
+
     else:
         raise RuntimeError("Gemini client not initialized. Check API key/SDK.")
+
 
 def _call_gemini_json_with_retry(prompt: str, attempts: int = 2, backoff_base: float = 0.5) -> Dict[str, Any]:
     last_err: Optional[Exception] = None
