@@ -22,6 +22,7 @@ import hashlib
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -89,6 +90,14 @@ class A2A(BaseModel):
     input: dict
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://suresightai.streamlit.app"],  # 👈 your Streamlit frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health():

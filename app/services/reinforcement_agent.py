@@ -1,52 +1,3 @@
-# app/services/reinforcement_agent.py
-"""
-Suresight AI — Reinforcement Agent (LLM-backed)
-Structured like ocr_agent.py; business logic preserved.
-
-Goal:
-- Take the Governance sanitized view and apply human, plain-English feedback
-  (format tweaks, currency/units/date normalization, ordering, labeling, table cleanup).
-- Preserve privacy: NEVER unmask redactions or remove tokens like "[REDACTED]" or "token:*".
-- Preserve shape: keep the SAME object shape as governance sanitized output, including any
-  extra keys such as `redacted` on entities.
-
-Inputs (POST /a2a/reinforce):
-{
-  "protocol": "a2a.v1",
-  "intent": "doc.reinforce",
-  "job_id": "<id>",
-  "input": {
-    "apply": true,
-    "feedback": "User feedback text...",
-    "governance_result": { ... },          # full governance response (preferred)
-    # OR:
-    "sanitized": { "full_text": "...", "entities": [...], "tables": [...] },
-
-    "viewer": {"role":"client"},
-    "jurisdiction": {"gdpr":true,"hipaa":true,"region":"EU"},
-    "lawful_basis": "contract",
-    "retention_days": 365
-  }
-}
-
-Outputs:
-{
-  "status": "ok" | "skipped" | "error",
-  "used_governance": true|false,
-  "final": { "full_text": "...", "entities": [...], "tables": [...] },
-  "audit": {
-    "timestamp": "<ISO>",
-    "job_id": "<id>",
-    "sdk": "google-genai|google-generativeai|none",
-    "model": "gemini-2.5-flash",
-    "latency_ms_total": <int>,
-    "applied_feedback": true|false,
-    "policy_version": "<from governance if present>",
-    "reason": "<why skipped or error if any>",
-    "raw_model_sample": "<first 400 chars of model output (if present)>"
-  }
-}
-"""
 
 import os
 import re
@@ -54,10 +5,12 @@ import json
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+
 
 # ---------- Env + config (mirror ocr_agent.py) ----------
 load_dotenv()
@@ -109,6 +62,14 @@ class A2A(BaseModel):
     input: dict
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://suresightai.streamlit.app"],  # 👈 your Streamlit frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health():
