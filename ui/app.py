@@ -15,8 +15,8 @@ GOV_URL   = os.getenv("GOV_PORT") or "http://localhost:8082"
 REINF_URL = os.getenv("REINF_PORT") or "http://localhost:8083"
 
 # ===================== Assets =====================
-LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.jpeg"
-RIGHT_LOGO = r"ui/artifacts/logos/DILLogo.jpeg"
+LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.png"
+RIGHT_LOGO = r"ui/artifacts/logos/DILLogo.png"
 
 # ===================== Defaults (no UI controls) =====================
 LOCALE_DEFAULT = "en-IN"
