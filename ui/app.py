@@ -397,56 +397,55 @@ def render_app():
             with st.spinner(f"🔤 OCR {i}/{n}: {file_name}"):
                 status_text.text(f"🔤 OCR {i}/{n}: {file_name}")
                 progress_bar.progress(int((i-1)/n*25)+5)
-            try:
-                img_b64 = b64_for_uploaded(file)
-                ocr = _call_ocr(img_b64, f"{job_base}-ocr-{i}", LOCALE_DEFAULT)
+                try:
+                    img_b64 = b64_for_uploaded(file)
+                    ocr = _call_ocr(img_b64, f"{job_base}-ocr-{i}", LOCALE_DEFAULT)
 
-                if not (ocr.get("full_text") or (ocr.get("entities") or ocr.get("tables"))):
-                    time.sleep(0.4)
-                    ocr = _call_ocr(img_b64, f"{job_base}-ocr-{i}-retry", LOCALE_DEFAULT)
                     if not (ocr.get("full_text") or (ocr.get("entities") or ocr.get("tables"))):
-                        raise RuntimeError("OCR returned empty content twice")
-            except httpx.TimeoutException:
-                set_agent("OCR", status="Error", pct=int(i/n*25), tone="bad", step=f"Timeout {i}/{n}")
-                st.error(f"OCR timed out for {file_name}")
-                continue
-            except Exception as e:
-                set_agent("OCR", status="Error", pct=int(i/n*25), tone="bad", step=f"Failed {i}/{n}")
-                st.error(f"OCR failed for {file_name}: {e}")
-                continue
-            set_agent("OCR", status="Complete", pct=int(i/n*25), tone="ok", step=f"OCR done {i}/{n}")
+                        time.sleep(0.4)
+                        ocr = _call_ocr(img_b64, f"{job_base}-ocr-{i}-retry", LOCALE_DEFAULT)
+                        if not (ocr.get("full_text") or (ocr.get("entities") or ocr.get("tables"))):
+                            raise RuntimeError("OCR returned empty content twice")
+                except httpx.TimeoutException:
+                    set_agent("OCR", status="Error", pct=int(i/n*25), tone="bad", step=f"Timeout {i}/{n}")
+                    st.error(f"OCR timed out for {file_name}")
+                    continue
+                except Exception as e:
+                    set_agent("OCR", status="Error", pct=int(i/n*25), tone="bad", step=f"Failed {i}/{n}")
+                    st.error(f"OCR failed for {file_name}: {e}")
+                    continue
+                set_agent("OCR", status="Complete", pct=int(i/n*25), tone="ok", step=f"OCR done {i}/{n}")
 
             # ---- Governance ----
-            set_agent("Gov", status="Running", pct=25+int((i-1)/n*45)+5, tone="warn", step=f"Governance {i}/{n}")
-            with st.spinner(f"🛡️ Governance {i}/{n}: {file_name}"):
-                status_text.text(f"🛡️ Governance {i}/{n}: {file_name}")
+                set_agent("Gov", status="Running", pct=25+int((i-1)/n*45)+5, tone="warn", step=f"Governance {i}/{n}")
+
                 progress_bar.progress(min(25+int((i-1)/n*45), 70))
-            try:
-                gov = _call_governance(ocr, f"{job_base}-gov-{i}", role)
-            except httpx.TimeoutException:
-                set_agent("Gov", status="Error", pct=25+int(i/n*45), tone="bad", step=f"Timeout {i}/{n}")
-                st.error(f"Governance timed out for {file_name}")
-                continue
-            except Exception as e:
-                set_agent("Gov", status="Error", pct=25+int(i/n*45), tone="bad", step=f"Failed {i}/{n}")
-                st.error(f"Governance failed for {file_name}: {e}")
-                continue
-            set_agent("Gov", status="Complete", pct=25+int(i/n*45), tone="ok", step=f"Sanitized {i}/{n}")
+                try:
+                    gov = _call_governance(ocr, f"{job_base}-gov-{i}", role)
+                except httpx.TimeoutException:
+                    set_agent("Gov", status="Error", pct=25+int(i/n*45), tone="bad", step=f"Timeout {i}/{n}")
+                    st.error(f"Governance timed out for {file_name}")
+                    continue
+                except Exception as e:
+                    set_agent("Gov", status="Error", pct=25+int(i/n*45), tone="bad", step=f"Failed {i}/{n}")
+                    st.error(f"Governance failed for {file_name}: {e}")
+                    continue
+                set_agent("Gov", status="Complete", pct=25+int(i/n*45), tone="ok", step=f"Sanitized {i}/{n}")
 
-            sanitized = (gov.get("views") or {}).get("sanitized", {}) or {}
-            redacts   = gov.get("redaction_manifest", []) or []
-            gov_audit = gov.get("audit", {}) or {}
+                sanitized = (gov.get("views") or {}).get("sanitized", {}) or {}
+                redacts   = gov.get("redaction_manifest", []) or []
+                gov_audit = gov.get("audit", {}) or {}
 
-            st.session_state.results.append({
-                "file_name": file_name, "ocr": ocr, "gov": gov,
-                "sanitized": sanitized, "final": sanitized,
-                "redacts": redacts, "gov_audit": gov_audit, "reinf": None
-            })
+                st.session_state.results.append({
+                    "file_name": file_name, "ocr": ocr, "gov": gov,
+                    "sanitized": sanitized, "final": sanitized,
+                    "redacts": redacts, "gov_audit": gov_audit, "reinf": None
+                })
 
-            progress_bar.progress(min(25+int(i/n*65), 70))
+                progress_bar.progress(min(25+int(i/n*65), 70))
 
-        set_agent("Reinf", status="Idle", pct=80, tone="warn", step="Awaiting feedback per image")
-        progress_bar.progress(100)
+            set_agent("Reinf", status="Idle", pct=80, tone="warn", step="Awaiting feedback per image")
+            progress_bar.progress(100)
         status_text.text("✅ OCR & Governance complete. Use the Reinforcement tabs below if needed.")
         time.sleep(0.4)
         progress_bar.empty(); status_text.empty()
