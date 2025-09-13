@@ -212,7 +212,7 @@ def hero_header():
     st.markdown(
         f'<div style="display:flex; justify-content:center; align-items:center;">'
         f'<img src="data:image/png;base64,{base64.b64encode(open(ECL_Logo, "rb").read()).decode()}" '
-        f'style="height:60px; margin-bottom:12px;" />'
+        f'style="height:120px; margin-bottom:56px;" />'
         f'</div>',
         unsafe_allow_html=True
     )
