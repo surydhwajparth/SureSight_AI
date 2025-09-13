@@ -17,7 +17,7 @@ REINF_URL = os.getenv("REINF_PORT") or "http://localhost:8083"
 # ===================== Assets =====================
 LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.png"
 RIGHT_LOGO = r"ui/artifacts/logos/DILLogo.png"
-ECL_Logo = r"ui/artifacts/logos/ECLLogo.png"
+ECL_Logo = r"ui/artifacts/logos/ECL.png"
 
 # ===================== Defaults (no UI controls) =====================
 LOCALE_DEFAULT = "en-IN"
