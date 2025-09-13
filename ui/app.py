@@ -386,7 +386,7 @@ def render_app():
         for k in ["OCR","Gov","Reinf"]:
             set_agent(k, status="Queued", pct=0, tone="warn", step=f"Queued for {n} image(s)")
 
-        progress_bar = st.progress(0)
+        progress_bar = st.progress(12)
         status_text = st.empty()
 
         for i, file in enumerate(uploaded_files, start=1):
@@ -439,10 +439,10 @@ def render_app():
                 "redacts": redacts, "gov_audit": gov_audit, "reinf": None
             })
 
-            progress_bar.progress(min(25+int(i/n*45), 70))
+            progress_bar.progress(min(25+int(i/n*65), 70))
 
         set_agent("Reinf", status="Idle", pct=80, tone="warn", step="Awaiting feedback per image")
-        progress_bar.progress(50)
+        progress_bar.progress(100)
         status_text.text("✅ OCR & Governance complete. Use the Reinforcement tabs below if needed.")
         time.sleep(0.4)
         progress_bar.empty(); status_text.empty()
