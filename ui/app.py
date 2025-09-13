@@ -68,7 +68,7 @@ a { color: var(--accent); }
 
 /* HERO header (centered banner) */
 .su-hero { border-radius: 22px; padding: 28px; margin-bottom: 16px;
-           background: linear-gradient(135deg, #1f3b8a 20%, #0ea5e9 40%, #2563eb 100%);
+           background: linear-gradient(135deg, #1f3b8a 0%, #0ea5e9 10%, #2563eb 100%);
            box-shadow: 0 20px 80px rgba(14,165,233,.25); text-align:center; }
 .su-hero h1 { margin:0; font-weight:900; letter-spacing:.4px; font-size:2.2rem; color:#e6f1ff; }
 .su-hero p  { margin:.35rem 0 0 0; color:#d9ecff; opacity:.95; font-weight:600; }
