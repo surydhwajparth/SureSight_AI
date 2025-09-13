@@ -46,7 +46,7 @@ section[data-testid="stSidebar"] {
   background: #0b122e !important; border-right: 1px solid var(--edge);
 }
 section[data-testid="stSidebar"] .block-container { padding-top:.6rem; }
-.block-container {padding-top: .8rem; padding-bottom: 2rem; max-width: 1400px;}
+.block-container {padding-top: .8rem; padding-bottom: 2rem; max-width: 1800px;}
 * { color: var(--text); }
 a { color: var(--accent); }
 
