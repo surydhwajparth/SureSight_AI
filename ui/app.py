@@ -210,6 +210,14 @@ def agent_panel():
 
 def hero_header():
     st.markdown(
+        """
+        <style>
+        header[data-testid="stHeader"] {visibility: hidden;}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown(
         f'<div style="display:flex; justify-content:center; align-items:center;">'
         f'<img src="data:image/png;base64,{base64.b64encode(open(ECL_Logo, "rb").read()).decode()}" '
         f'style="height:120px; margin-bottom:56px;" />'
