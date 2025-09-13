@@ -174,11 +174,11 @@ def set_agent(key, status=None, pct=None, tone=None, step=None):
 def agent_panel():
     c_logo1, c_logo2 = st.sidebar.columns([1,1])
     try:
-        c_logo1.image(LEFT_LOGO, use_container_width=False)
+        c_logo1.image(LEFT_LOGO, width=False)
     except Exception:
         c_logo1.markdown("🔍")
     try:
-        c_logo2.image(RIGHT_LOGO, use_container_width=False)
+        c_logo2.image(RIGHT_LOGO, width=False)
     except Exception:
         c_logo2.markdown("🛡️")
 
@@ -198,7 +198,7 @@ def agent_panel():
         """, unsafe_allow_html=True)
 
     st.sidebar.markdown("### 🌐 Services")
-    if st.sidebar.button("Refresh health", use_container_width=True):
+    if st.sidebar.button("Refresh health", width=True):
         st.session_state._health = ping_health()
     if "_health" not in st.session_state:
         st.session_state._health = ping_health()
@@ -350,7 +350,7 @@ def render_app():
 
     run_col, info_col = st.columns([0.25, 0.75])
     with run_col:
-        run = st.button("Run Pipeline", type="primary", use_container_width=True)
+        run = st.button("Run Pipeline", type="primary", width=True)
     with info_col:
         if num_files > 0:
             st.markdown(
@@ -485,7 +485,7 @@ def render_app():
                     data=(final_view.get("full_text") or "").encode("utf-8"),
                     file_name=f"{res['file_name']}-final.txt",
                     mime="text/plain",
-                    use_container_width=True
+                    width=True
                 )
 
             # Entities
@@ -496,7 +496,7 @@ def render_app():
                     df = pd.DataFrame(ents)
                     if 'redacted' in df.columns:
                         df['visibility'] = df['redacted'].map({True:'🔒 Protected', False:'👁️ Visible'})
-                    st.dataframe(df, use_container_width=True, height=320)
+                    st.dataframe(df, width=True, height=320)
                 else:
                     st.info("🔍 No entities detected.")
 
@@ -515,9 +515,9 @@ def render_app():
                                         df = pd.DataFrame(data, columns=header)
                                     else:
                                         df = pd.DataFrame(rows)
-                                    st.dataframe(df, use_container_width=True, height=240)
+                                    st.dataframe(df, width=True, height=240)
                                 except Exception:
-                                    st.dataframe(pd.DataFrame(rows), use_container_width=True, height=240)
+                                    st.dataframe(pd.DataFrame(rows), width=True, height=240)
                             else:
                                 st.info("📝 Empty table.")
                 else:
@@ -540,7 +540,7 @@ def render_app():
                         placeholder="e.g., Standardize dates to YYYY-MM-DD, normalize currency, fix mislabeled columns.",
                         key=f"fb_{idx}"
                     )
-                    submitted = st.form_submit_button("Apply Feedback", use_container_width=True, type="primary" )
+                    submitted = st.form_submit_button("Apply Feedback", width=True, type="primary" )
 
                 if submitted:
                     set_agent("Reinf", status="Running", pct=85, tone="warn",
@@ -589,7 +589,7 @@ def render_app():
                 if redacts:
                     st.markdown("**🔒 Redaction Details**")
                     df_r = pd.DataFrame(redacts)
-                    st.dataframe(df_r, use_container_width=True, height=240)
+                    st.dataframe(df_r, width=True, height=240)
 
     
     # Footer
