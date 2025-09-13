@@ -209,6 +209,7 @@ def agent_panel():
         cols[i].markdown(f'<span class="su-chip"><span class="su-dot {tone}"></span>{label}</span>', unsafe_allow_html=True)
 
 def hero_header():
+    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
     st.markdown("""
     <div class="su-hero">
       <h1>SureSight AI</h1>
@@ -560,7 +561,7 @@ def render_app():
                     df_r = pd.DataFrame(redacts)
                     st.dataframe(df_r, use_container_width=True, height=240)
 
-    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
+    
     # Footer
     st.markdown("<br/>", unsafe_allow_html=True)
    
