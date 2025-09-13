@@ -209,7 +209,13 @@ def agent_panel():
         cols[i].markdown(f'<span class="su-chip"><span class="su-dot {tone}"></span>{label}</span>', unsafe_allow_html=True)
 
 def hero_header():
-    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
+    st.markdown(
+        f'<div style="display:flex; justify-content:center; align-items:center;">'
+        f'<img src="data:image/png;base64,{base64.b64encode(open(ECL_Logo, "rb").read()).decode()}" '
+        f'style="height:60px; margin-bottom:12px;" />'
+        f'</div>',
+        unsafe_allow_html=True
+    )
     st.markdown("""
     <div class="su-hero">
       <h1>SureSight AI</h1>
