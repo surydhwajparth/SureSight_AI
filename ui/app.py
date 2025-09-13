@@ -321,7 +321,7 @@ def render_app():
     with info_col:
         if num_files > 0:
             st.markdown(
-                f'<div class="su-card"><span class="su-chip"><span class="su-dot ok"></span>'
+                '<div class="su-chip"><span class="su-dot ok"></span>'
                 f'Ready to process: <strong>{num_files}</strong> image(s)</span></div>',
                 unsafe_allow_html=True
             )
