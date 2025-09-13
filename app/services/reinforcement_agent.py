@@ -218,15 +218,59 @@ def _build_prompt(feedback: str, sanitized: Dict[str, Any], policy_version: Opti
     safe_json = json.dumps(sanitized, ensure_ascii=False)
     policy_note = f"(policy_version={policy_version})" if policy_version else ""
 
+    # Few-shot 1: simple normalization & ordering (kept from your original)
     fewshot_1_in = {
         "full_text": "Invoice Date: 12/03/24\nTerms of Instructions: Pay within 30 days.\nBody...",
-        "entities": [{"name":"invoice_date","value":"12/03/24","type":"DATE","confidence":0.74}],
+        "entities": [{"name": "invoice_date", "value": "12/03/24", "type": "DATE", "confidence": 0.74}],
         "tables": []
     }
     fewshot_1_fb = "Normalize dates to YYYY-MM-DD. Put the 'Terms of Instructions' section above everything."
     fewshot_1_out = {
         "full_text": "Terms of Instructions: Pay within 30 days.\nInvoice Date: 2024-03-12\nBody...",
-        "entities": [{"name":"invoice_date","value":"2024-03-12","type":"DATE","confidence":0.90}],
+        "entities": [{"name": "invoice_date", "value": "2024-03-12", "type": "DATE", "confidence": 0.90}],
+        "tables": []
+    }
+
+    # Few-shot 2: TRANSLATION (no currency change)
+    fewshot_2_in = {
+        "full_text": "Cliente: [REDACTED]\nFecha de factura: 05/04/24\nTotal: EUR 125,50",
+        "entities": [
+            {"name": "invoice_date", "value": "05/04/24", "type": "DATE", "confidence": 0.80},
+            {"name": "total", "value": "EUR 125,50", "type": "MONEY", "confidence": 0.85}
+        ],
+        "tables": []
+    }
+    fewshot_2_fb = "Translate to English. Normalize dates to YYYY-MM-DD. Do not change currency."
+    fewshot_2_out = {
+        "full_text": "Client: [REDACTED]\nInvoice Date: 2024-04-05\nTotal: EUR 125.50",
+        "entities": [
+            {"name": "invoice_date", "value": "2024-04-05", "type": "DATE", "confidence": 0.90},
+            {"name": "total", "value": "EUR 125.50", "type": "MONEY", "confidence": 0.90}
+        ],
+        "tables": []
+    }
+
+    # Few-shot 3: CURRENCY CONVERSION (explicit target+rate provided)
+    # NOTE: 1 USD = 83.20 INR
+    fewshot_3_in = {
+        "full_text": "Total: ₹12,345.00\nTax: ₹123.45",
+        "entities": [
+            {"name": "total_amount", "value": "INR 12,345.00", "type": "MONEY", "confidence": 0.88},
+            {"name": "tax_amount", "value": "INR 123.45", "type": "MONEY", "confidence": 0.86}
+        ],
+        "tables": []
+    }
+    fewshot_3_fb = (
+        "Convert all currency amounts to USD using 1 USD = 83.20 INR. "
+        "Use canonical format '<ISO> <amount>' with dot decimal and no thousands separators. "
+        "Round HALF-UP to 2 decimals."
+    )
+    fewshot_3_out = {
+        "full_text": "Total: USD 148.38\nTax: USD 1.48",
+        "entities": [
+            {"name": "total_amount", "value": "USD 148.38", "type": "MONEY", "confidence": 0.92},
+            {"name": "tax_amount", "value": "USD 1.48", "type": "MONEY", "confidence": 0.92}
+        ],
         "tables": []
     }
 
@@ -244,19 +288,42 @@ def _build_prompt(feedback: str, sanitized: Dict[str, Any], policy_version: Opti
         '  "tables": [ { "id": "<str>", "rows": [ [ "<str>", ... ], ... ] }, ... ]\n'
         "}\n"
         "2) NEVER unmask or alter \"[REDACTED]\" or strings like \"token:<type>:<hash>\".\n"
-        "3) Do not invent PII/PHI; apply edits conservatively (date/currency normalization, ordering sections, header fixes, entity/type corrections, table shaping).\n"
-        "4) If a requested change is ambiguous or would break privacy, leave that part unchanged.\n\n"
-        "EXAMPLE\n"
-        "translation of language"
-        "Unredaction if needed"
+        "3) Apply edits conservatively: normalization (dates/currency), ordering sections, header fixes, entity/type corrections, table shaping.\n"
+        "4) If a requested change is ambiguous or would break privacy, leave that part unchanged.\n"
+        "5) TRANSLATION RULES:\n"
+        "   • If feedback asks to translate (e.g., 'translate to English/Spanish/<LANG>'), translate textual content faithfully.\n"
+        "   • Translate section headings, labels, and table headers/cells that are natural language.\n"
+        "   • Do NOT translate codes/IDs, numbers, currency codes/symbols, or placeholders like [REDACTED].\n"
+        "   • If no target language is specified, preserve the original language.\n"
+        "6) CURRENCY RULES:\n"
+        "   • Normalization (when no conversion is requested or rate is not provided):\n"
+        "     - Standardize money values to canonical format: '<ISO_4217_CODE> <amount>' (e.g., 'USD 1234.56').\n"
+        "     - Use dot as decimal separator, NO thousands separators, preserve sign (e.g., '-USD 12.34' becomes 'USD -12.34' is NOT allowed; keep sign directly before number).\n"
+        "     - Update both 'full_text' and matching 'entities' values consistently.\n"
+        "   • Conversion (ONLY if target currency AND an explicit rate are provided in feedback or present in sanitized_json context):\n"
+        "     - Do NOT guess rates or fetch external data.\n"
+        "     - Convert all clearly money-like values (symbols ₹, $, €, codes INR/USD/EUR, etc.) to the target currency using the given rate.\n"
+        "     - Round HALF-UP to 2 decimals.\n"
+        "     - Output in canonical format '<ISO> <amount>' and update corresponding 'entities' values.\n"
+        "     - Apply the same to table cells that are monetary values.\n"
+        "   • If the request mixes currencies without per-currency rates and target, perform normalization only (no conversion).\n"
+        "7) Do NOT invent new entities or tables. Modify only what is clearly present and relevant to the feedback.\n\n"
+        "EXAMPLES\n"
         f"sanitized_json:\n{json.dumps(fewshot_1_in, ensure_ascii=False)}\n"
         f"human_feedback:\n{fewshot_1_fb}\n"
         f"correct_output:\n{json.dumps(fewshot_1_out, ensure_ascii=False)}\n\n"
+        f"sanitized_json:\n{json.dumps(fewshot_2_in, ensure_ascii=False)}\n"
+        f"human_feedback:\n{fewshot_2_fb}\n"
+        f"correct_output:\n{json.dumps(fewshot_2_out, ensure_ascii=False)}\n\n"
+        f"sanitized_json:\n{json.dumps(fewshot_3_in, ensure_ascii=False)}\n"
+        f"human_feedback:\n{fewshot_3_fb}\n"
+        f"correct_output:\n{json.dumps(fewshot_3_out, ensure_ascii=False)}\n\n"
         "=== YOUR TURN ===\n"
         f"sanitized_json:\n{safe_json}\n\n"
         f"human_feedback:\n{feedback or '(none)'}\n"
         "Return the EDITED JSON only."
     )
+
 
 # ---------------- Endpoint ----------------
 @app.post("/a2a/reinforce")
