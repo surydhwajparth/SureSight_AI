@@ -394,7 +394,9 @@ def render_app():
 
             # ---- OCR ----
             set_agent("OCR", status="Running", pct=int((i-1)/n*25)+5, tone="warn", step=f"OCR {i}/{n}: {file_name}")
-            status_text.text(f"🔤 OCR {i}/{n}: {file_name}")
+            with st.spinner(f"🔤 OCR {i}/{n}: {file_name}"):
+                status_text.text(f"🔤 OCR {i}/{n}: {file_name}")
+                progress_bar.progress(int((i-1)/n*25)+5)
             try:
                 img_b64 = b64_for_uploaded(file)
                 ocr = _call_ocr(img_b64, f"{job_base}-ocr-{i}", LOCALE_DEFAULT)
@@ -416,7 +418,9 @@ def render_app():
 
             # ---- Governance ----
             set_agent("Gov", status="Running", pct=25+int((i-1)/n*45)+5, tone="warn", step=f"Governance {i}/{n}")
-            status_text.text(f"🛡️ Governance {i}/{n}: {file_name}")
+            with st.spinner(f"🛡️ Governance {i}/{n}: {file_name}"):
+                status_text.text(f"🛡️ Governance {i}/{n}: {file_name}")
+                progress_bar.progress(min(25+int((i-1)/n*45), 70))
             try:
                 gov = _call_governance(ocr, f"{job_base}-gov-{i}", role)
             except httpx.TimeoutException:
