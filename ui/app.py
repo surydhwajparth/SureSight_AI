@@ -327,7 +327,7 @@ def render_app():
             )
         else:
             st.markdown(
-                '<div class="su-card"><span class="su-dot warn su-chip"></span>'
+                '<div class="su-card"><span class="su-dot warn"></span>'
                 '<span class="su-chip">Upload one or more PNG/JPG images to begin processing</span></div>',
                 unsafe_allow_html=True
             )
