@@ -228,7 +228,7 @@ def hero_header():
     st.markdown("""
     <div class="su-hero">
       <div style="
-        background: linear-gradient(135deg, #0a0f1c 35%, #1e293b 30%, #0f172a 90%);
+        background: linear-gradient(135deg, #0a0f1c 15%, #1e293b 30%, #0f172a 90%);
         border-radius: 24px;
         padding: 32px 48px;
         margin-bottom: 22px;
