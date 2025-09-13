@@ -212,7 +212,7 @@ def hero_header():
     st.markdown(
         """
         <style>
-        header[data-testid="stHeader"] {visibility: transparent;}
+        header[data-testid="stHeader"] {background: rgba(255,255,255,0.3) !important;}
         </style>
         """,
         unsafe_allow_html=True
