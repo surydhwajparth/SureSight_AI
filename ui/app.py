@@ -240,7 +240,7 @@ def hero_header():
         border-radius: 24px;
         padding: 32px 48px;
         margin-bottom: 22px;
-        box-shadow: 0 8px 48px rgba(14,165,233,0.22);
+        box-shadow: 0 8px 48px rgba(150,165,233,0.22);
         text-align: center;
         display: inline-block;
         min-width: 420px;
