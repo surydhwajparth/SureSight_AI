@@ -322,13 +322,13 @@ def render_app():
         if num_files > 0:
             st.markdown(
                 '<div class="su-chip"><span class="su-dot ok"></span>'
-                f'Ready to process: <strong>{num_files}</strong> image(s)</span></div>',
+                f'Ready to process: <strong>{num_files}</strong> image(s)</div>',
                 unsafe_allow_html=True
             )
         else:
             st.markdown(
                 '<div class="su-chip"><span class="su-dot warn"></span>'
-                '<span class="su-chip">Upload one or more PNG/JPG images to begin processing</span></div>',
+                'Upload one or more PNG/JPG images to begin processing</div>',
                 unsafe_allow_html=True
             )
 
