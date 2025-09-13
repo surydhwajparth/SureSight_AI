@@ -52,7 +52,7 @@ a { color: var(--accent); }
 
 /* Sidebar logos */
 .sidebar-logos { display:flex; gap:12px; align-items:center; justify-content:center; margin:6px 6px 14px 6px; }
-.sidebar-logos img { height:34px; border-radius:8px; background:#0e1534; padding:6px 8px; border:1px solid var(--edge); }
+.sidebar-logos img { height:34px; border-radius:8px; padding:6px 8px; border:1px solid var(--edge); }
 
 /* Cards */
 .su-surface { background: linear-gradient(160deg, var(--panel) 0%, #0c1233 100%);
