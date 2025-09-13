@@ -210,7 +210,7 @@ def hero_header():
     st.markdown("""
     <div class="su-hero">
       <h1>SureSight AI</h1>
-      <p>Agentic OCR • A2A • Gemini 2.5 Flash • HIPAA/GDPR Ready</p>
+      <p>Agentic OCR • A2A • Gemini 2.5 Flash • HIPAA/GDPR Compliant</p>
     </div>
     """, unsafe_allow_html=True)
 
