@@ -112,7 +112,7 @@ div[data-testid="stFileUploadDropzone"] button:hover { background:#1c2553 !impor
 /* Buttons (includes sidebar Refresh health, Apply Feedback, Download Final Text) */
 .stButton>button, .stDownloadButton>button {
   border-radius:12px;
-  background: linear-gradient(160deg,#0b122e,#0f1844) !important;
+  background: linear-gradient(160deg,#0b122e 40%,#0f1844) !important;
   color: var(--text) !important;
   border:1px solid var(--edge) !important;
 }
