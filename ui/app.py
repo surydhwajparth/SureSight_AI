@@ -394,7 +394,7 @@ def render_app():
 
             # ---- OCR ----
             set_agent("OCR", status="Running", pct=int((i-1)/n*25)+5, tone="warn", step=f"OCR {i}/{n}: {file_name}")
-            with st.spinner(f"🔤 OCR {i}/{n}: {file_name}"):
+            with st.spinner():
                 status_text.text(f"🔤 OCR {i}/{n}: {file_name}")
                 progress_bar.progress(int((i-1)/n*25)+5)
                 try:
