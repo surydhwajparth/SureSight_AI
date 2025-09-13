@@ -68,7 +68,7 @@ a { color: var(--accent); }
 
 /* HERO header (centered banner) */
 .su-hero { border-radius: 22px; padding: 28px; margin-bottom: 16px;
-           background: linear-gradient(135deg, #1f3b8a 0%, #0ea5e9 40%, #2563eb 100%);
+           background: linear-gradient(135deg, #1f3b8a 20%, #0ea5e9 40%, #2563eb 100%);
            box-shadow: 0 20px 80px rgba(14,165,233,.25); text-align:center; }
 .su-hero h1 { margin:0; font-weight:900; letter-spacing:.4px; font-size:2.2rem; color:#e6f1ff; }
 .su-hero p  { margin:.35rem 0 0 0; color:#d9ecff; opacity:.95; font-weight:600; }
@@ -112,7 +112,7 @@ div[data-testid="stFileUploadDropzone"] button:hover { background:#1c2553 !impor
 /* Buttons (includes sidebar Refresh health, Apply Feedback, Download Final Text) */
 .stButton>button, .stDownloadButton>button {
   border-radius:12px;
-  background: linear-gradient(160deg 50% ,#0b122e 40%,#0f1844) !important;
+  background: linear-gradient(160deg,#0b122e,#0f1844) !important;
   color: var(--text) !important;
   border:1px solid var(--edge) !important;
 }
