@@ -298,7 +298,7 @@ def render_app():
     hero_header()
     agent_panel()
 
-    st.markdown("### 🧪 Workspace")
+    st.markdown("### Workspace")
     with st.container():
         c1, c2 = st.columns([0.65, 0.35])
         with c1:
@@ -309,7 +309,7 @@ def render_app():
                 help="Upload 1–10 images; each will be processed independently.",
             )
         with c2:
-            role = st.selectbox("👤 User Role", ["admin","client"], index=1,
+            role = st.selectbox("User Role", ["admin","client"], index=1,
                                 help="Admin: raw OCR; Client: sanitized")
     st.session_state.role = role
 
