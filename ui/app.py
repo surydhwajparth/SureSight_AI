@@ -227,19 +227,23 @@ def hero_header():
     
     st.markdown("""
     <div class="su-hero">
-          <div style="
-        background: linear-gradient(135deg, #1e293b 0%, #0a0f1e 100%);
-        border-radius: 18px;
-        padding: 18px 32px;
-        margin-bottom: 18px;
-        box-shadow: 0 4px 32px rgba(30,41,59,0.18);
+      <div style="
+        background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 60%, #1e293b 100%);
+        border-radius: 24px;
+        padding: 32px 48px;
+        margin-bottom: 22px;
+        box-shadow: 0 8px 48px rgba(14,165,233,0.22);
         text-align: center;
-    ">
-        <span style="font-size:2.1rem; font-weight:900; color:#e6f1ff; letter-spacing:.5px;">
+        display: inline-block;
+        min-width: 420px;
+      ">
+        <span style="font-size:2.2rem; font-weight:900; color:#e6f1ff; letter-spacing:.5px;">
             SureSight AI
         </span>
-    </div>
-      <p>Agentic OCR • A2A • Gemini 2.5 Flash • HIPAA/GDPR Compliant</p>
+      </div>
+      <p style="color:#d9ecff; font-weight:600; margin-top:18px;">
+        Agentic OCR • A2A • Gemini 2.5 Flash • HIPAA/GDPR Compliant
+      </p>
     </div>
     """, unsafe_allow_html=True)
 
