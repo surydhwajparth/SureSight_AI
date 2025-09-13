@@ -317,7 +317,7 @@ def render_app():
 
     run_col, info_col = st.columns([0.25, 0.75])
     with run_col:
-        run = st.button("🚀 Run Pipeline", type="primary", use_container_width=True)
+        run = st.button("Run Pipeline", type="primary", use_container_width=True)
     with info_col:
         if num_files > 0:
             st.markdown(
