@@ -170,7 +170,6 @@ def set_agent(key, status=None, pct=None, tone=None, step=None):
     if tone is not None: cur["tone"]=tone
     if step is not None: cur["step"]=step
     st.session_state.agent_state[key]=cur
-
 def agent_panel():
     c_logo1, c_logo2 = st.sidebar.columns([1,1])
     try:
@@ -182,18 +181,27 @@ def agent_panel():
     except Exception:
         c_logo2.markdown("🛡️")
 
+    # Set sidebar transparency to 120% (opacity > 1 is not valid, so use 1 for max opacity)
+    st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] {
+        background: rgba(11, 18, 46, 0.20) !important; /* 100% opacity */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.sidebar.markdown("### ⚙️ Agents")
     st.sidebar.caption("Live status while your document(s) are processed.")
     for label, key, icon in [("OCR Engine","OCR","🔤"), ("Governance","Gov","🛡️"), ("Reinforcement","Reinf","🚀")]:
         s = st.session_state.agent_state.get(key, {})
         st.sidebar.markdown(f"""
         <div class="agent-card">
-          <div class="agent-row">
+            <div class="agent-row">
             <div class="agent-name">{icon} {label}</div>
             <div class="su-chip"><span class="su-dot {'ok' if s.get('tone')=='ok' else 'warn' if s.get('tone')=='warn' else 'bad'}"></span>{s.get('status','')}</div>
-          </div>
-          <div class="agent-step">{s.get('step','')}</div>
-          <div class="progress-wrap"><div class="progress-inner" style="width:{int(s.get('pct',0))}%;"></div></div>
+            </div>
+            <div class="agent-step">{s.get('step','')}</div>
+            <div class="progress-wrap"><div class="progress-inner" style="width:{int(s.get('pct',0))}%;"></div></div>
         </div>
         """, unsafe_allow_html=True)
 
