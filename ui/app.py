@@ -560,9 +560,10 @@ def render_app():
                     df_r = pd.DataFrame(redacts)
                     st.dataframe(df_r, use_container_width=True, height=240)
 
+    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
     # Footer
     st.markdown("<br/>", unsafe_allow_html=True)
-    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
+   
     st.markdown('<div class="su-glass" style="text-align:center;">🚀 <strong>SureSight AI</strong> • Agentic/Privacy-first document intelligence</div>', unsafe_allow_html=True)
 
 # ===================== Hooks (optional) =====================
