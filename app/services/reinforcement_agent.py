@@ -63,13 +63,7 @@ class A2A(BaseModel):
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://suresightai.streamlit.app"],  # 👈 your Streamlit frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 @app.get("/health")
 def health():
@@ -253,6 +247,8 @@ def _build_prompt(feedback: str, sanitized: Dict[str, Any], policy_version: Opti
         "3) Do not invent PII/PHI; apply edits conservatively (date/currency normalization, ordering sections, header fixes, entity/type corrections, table shaping).\n"
         "4) If a requested change is ambiguous or would break privacy, leave that part unchanged.\n\n"
         "EXAMPLE\n"
+        "translation of language"
+        "Unredaction if needed"
         f"sanitized_json:\n{json.dumps(fewshot_1_in, ensure_ascii=False)}\n"
         f"human_feedback:\n{fewshot_1_fb}\n"
         f"correct_output:\n{json.dumps(fewshot_1_out, ensure_ascii=False)}\n\n"
