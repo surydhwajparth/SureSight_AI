@@ -434,7 +434,7 @@ def render_app():
             progress_bar.progress(min(25+int(i/n*45), 70))
 
         set_agent("Reinf", status="Idle", pct=80, tone="warn", step="Awaiting feedback per image")
-        progress_bar.progress(100)
+        progress_bar.progress(50)
         status_text.text("✅ OCR & Governance complete. Use the Reinforcement tabs below if needed.")
         time.sleep(0.4)
         progress_bar.empty(); status_text.empty()

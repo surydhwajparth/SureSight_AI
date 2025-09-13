@@ -240,9 +240,9 @@ def _build_prompt(feedback: str, sanitized: Dict[str, Any], policy_version: Opti
         ],
         "tables": []
     }
-    fewshot_2_fb = "Translate to <any language>. Normalize dates to YYYY-MM-DD. Do not change currency."
+    fewshot_2_fb = "Translate to English. Normalize dates to YYYY-MM-DD. Do not change currency."
     fewshot_2_out = {
-        "full_text": "<translated given language>",
+        "full_text": "Client: [REDACTED]\nInvoice Date: 2024-04-05\nTotal: EUR 125.50",
         "entities": [
             {"name": "invoice_date", "value": "2024-04-05", "type": "DATE", "confidence": 0.90},
             {"name": "total", "value": "EUR 125.50", "type": "MONEY", "confidence": 0.90}
