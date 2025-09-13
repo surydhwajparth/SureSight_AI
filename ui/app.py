@@ -172,6 +172,17 @@ def set_agent(key, status=None, pct=None, tone=None, step=None):
     st.session_state.agent_state[key]=cur
 
 def agent_panel():
+    # Increase sidebar width using custom CSS
+    st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] {
+        min-width: 340px !important;
+        max-width: 380px !important;
+        width: 340px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     c_logo1, c_logo2 = st.sidebar.columns([1,1])
     try:
         c_logo1.image(LEFT_LOGO, use_container_width=False)
