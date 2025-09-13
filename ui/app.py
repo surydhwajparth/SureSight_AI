@@ -17,6 +17,7 @@ REINF_URL = os.getenv("REINF_PORT") or "http://localhost:8083"
 # ===================== Assets =====================
 LEFT_LOGO  = r"ui/artifacts/logos/AdrosonicLogo.png"
 RIGHT_LOGO = r"ui/artifacts/logos/DILLogo.png"
+ECL_Logo = r"ui/artifacts/logos/ECLLogo.png"
 
 # ===================== Defaults (no UI controls) =====================
 LOCALE_DEFAULT = "en-IN"
@@ -146,6 +147,7 @@ footer {visibility:hidden;}
 .stSpinner > div > div {border-color: #38bdf8 transparent transparent transparent;}
 </style>
 """
+
 st.markdown(STYLES, unsafe_allow_html=True)
 
 # ===================== App State =====================
@@ -560,6 +562,7 @@ def render_app():
 
     # Footer
     st.markdown("<br/>", unsafe_allow_html=True)
+    st.image(ECL_Logo, use_column_width=False, output_format="PNG")
     st.markdown('<div class="su-glass" style="text-align:center;">🚀 <strong>SureSight AI</strong> • Agentic/Privacy-first document intelligence</div>', unsafe_allow_html=True)
 
 # ===================== Hooks (optional) =====================
