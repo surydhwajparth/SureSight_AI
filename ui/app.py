@@ -241,7 +241,7 @@ def hero_header():
             SureSight AI
         </span>
       </div>
-      <p style="color:#d9ecff; font-weight:600; margin-top:18px;">
+      <p style="color:#d9ecff; font-weight:800; margin-top:12px;">
         Agentic OCR • A2A • Gemini 2.5 Flash • HIPAA/GDPR Compliant
       </p>
     </div>
