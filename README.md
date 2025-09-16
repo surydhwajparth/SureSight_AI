@@ -3,7 +3,8 @@
 **SureSight AI** is a multi-agent document intelligence system. It combines OCR, governance (privacy redaction), and reinforcement (human-in-the-loop corrections) into a workflow with a Streamlit-based UI.
 
 
-![ECL Logo](ui/artifacts/logos/ECL.png)
+
+![ECL Logo](ui/artifacts/logos/Screenshot_20250916_191832.png)
 
 
 ## 🧩 Components
