@@ -37,7 +37,7 @@
 - Produces a new `final` view and audit trail.
 
 ### 4. Streamlit UI (`ui/app.py`)
-- Upload images or PDFs.
+- Upload images.
 - See OCR → Governance → Reinforcement results step-by-step.
 - Interactive tabs:
   - Final View
