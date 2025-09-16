@@ -50,7 +50,7 @@
 - Dark theme, professional UI.
 
 ### 5. OCR Test Script (`ocr_pdf_test_script.py`)
-- CLI script to test OCR agent with any local PDF or image.
+- CLI script to test OCR agent with any image.
 - Converts file → base64 → sends request.
 - Saves results to JSON.
 
