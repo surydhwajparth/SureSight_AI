@@ -2,6 +2,11 @@
 
 **SureSight AI** is a multi-agent document intelligence system. It combines OCR, governance (privacy redaction), and reinforcement (human-in-the-loop corrections) into a workflow with a Streamlit-based UI.
 
+# SureSight AI – Agentic OCR System
+
+![ECL Logo](ui/artifacts/logos/ECL.png)
+
+
 ## 🧩 Components
 
 ### 1. OCR Agent (`app/services/ocr_agent.py`)
